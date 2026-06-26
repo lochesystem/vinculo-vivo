@@ -42,22 +42,68 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.pet-stage {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at center bottom, #1a1030 0%, var(--bg) 80%);
+  overflow: hidden;
+}
+
+.game-layout.touch .pet-stage {
+  width: 100%;
+  height: 38vh;
+  min-height: 200px;
+  max-height: 320px;
+  aspect-ratio: 4 / 3;
 }
 
 #game-canvas {
   display: block;
-  width: 100%;
-  height: 100%;
   image-rendering: pixelated;
 }
 
 .ui-overlay {
-  position: absolute;
-  inset: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   pointer-events: none;
   display: flex;
   flex-direction: column;
   padding: 12px;
+}
+
+.game-layout.touch .ui-overlay {
+  position: relative;
+  inset: auto;
+}
+
+.game-layout:not(.touch) .pet-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+.game-layout:not(.touch) .ui-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: transparent;
+  justify-content: space-between;
+}
+
+.game-layout:not(.touch) .ui-overlay .hud-top,
+.game-layout:not(.touch) .ui-overlay .speech-bubble,
+.game-layout:not(.touch) .ui-overlay .needs-panel,
+.game-layout:not(.touch) .ui-overlay .care-actions,
+.game-layout:not(.touch) .ui-overlay .hud-bottom {
+  max-width: 280px;
+  margin-left: auto;
 }
 
 .ui-overlay > * {
@@ -465,6 +511,19 @@ body {
 }
 
 /* Touch layout */
+.game-layout.touch .hud-top {
+  flex-shrink: 0;
+  margin: 0;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+}
+
+.game-layout.touch .speech-bubble {
+  margin-top: 0;
+}
+
 .game-layout.touch .care-actions button {
   min-height: 48px;
   min-width: 64px;
@@ -479,11 +538,12 @@ body {
   .game-layout:not(.touch) {
     display: grid;
     grid-template-columns: 1fr 280px;
+    grid-template-rows: 1fr;
   }
 
-  .game-layout:not(.touch) #game-canvas {
+  .game-layout:not(.touch) .pet-stage {
     grid-column: 1;
-    grid-row: 1 / span 2;
+    grid-row: 1;
   }
 
   .game-layout:not(.touch) .ui-overlay {
@@ -493,6 +553,16 @@ body {
     border-left: 2px solid var(--border);
     justify-content: flex-start;
     padding-top: 24px;
+    overflow-y: auto;
+  }
+
+  .game-layout:not(.touch) .ui-overlay .hud-top,
+  .game-layout:not(.touch) .ui-overlay .speech-bubble,
+  .game-layout:not(.touch) .ui-overlay .needs-panel,
+  .game-layout:not(.touch) .ui-overlay .care-actions,
+  .game-layout:not(.touch) .ui-overlay .hud-bottom {
+    max-width: none;
+    margin-left: 0;
   }
 
   .game-layout:not(.touch) .speech-bubble {

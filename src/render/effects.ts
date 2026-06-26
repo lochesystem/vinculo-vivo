@@ -1,18 +1,29 @@
+import type { FormPreset } from '../data/forms';
+
 export interface EvolutionCinematic {
   active: boolean;
   phase: number;
   timer: number;
+  fromForm: FormPreset | null;
+  toForm: FormPreset | null;
   onComplete?: () => void;
 }
 
 export function createEvolutionCinematic(): EvolutionCinematic {
-  return { active: false, phase: 0, timer: 0 };
+  return { active: false, phase: 0, timer: 0, fromForm: null, toForm: null };
 }
 
-export function startEvolution(cine: EvolutionCinematic, onComplete: () => void): void {
+export function startEvolution(
+  cine: EvolutionCinematic,
+  fromForm: FormPreset,
+  toForm: FormPreset,
+  onComplete: () => void,
+): void {
   cine.active = true;
   cine.phase = 0;
   cine.timer = 0;
+  cine.fromForm = fromForm;
+  cine.toForm = toForm;
   cine.onComplete = onComplete;
 }
 
@@ -22,14 +33,23 @@ export function updateEvolution(cine: EvolutionCinematic, dt: number): void {
   if (cine.phase === 0 && cine.timer > 0.8) {
     cine.phase = 1;
     cine.timer = 0;
-  } else if (cine.phase === 1 && cine.timer > 1.2) {
+  } else if (cine.phase === 1 && cine.timer > 1.5) {
     cine.phase = 2;
     cine.timer = 0;
   } else if (cine.phase === 2 && cine.timer > 1.5) {
     cine.active = false;
+    cine.fromForm = null;
+    cine.toForm = null;
     cine.onComplete?.();
     cine.onComplete = undefined;
   }
+}
+
+/** Returns [oldAlpha, newAlpha] for silhouette crossfade during phase 1 */
+export function getEvolutionMorphAlpha(cine: EvolutionCinematic): [number, number] {
+  if (!cine.active || cine.phase !== 1) return [1, 0];
+  const t = Math.min(1, cine.timer / 1.5);
+  return [1 - t, t];
 }
 
 export function drawEvolutionOverlay(
@@ -47,7 +67,8 @@ export function drawEvolutionOverlay(
     ctx.fillRect(0, 0, w, h);
     drawDnaHelix(ctx, w / 2, h / 2, cine.timer * 4, glowColor);
   } else if (cine.phase === 1) {
-    ctx.fillStyle = `rgba(255,255,255,${Math.sin(cine.timer * 8) * 0.3 + 0.4})`;
+    const flash = Math.sin(cine.timer * 6) * 0.15 + 0.25;
+    ctx.fillStyle = `rgba(255,255,255,${flash})`;
     ctx.fillRect(0, 0, w, h);
     drawDnaHelix(ctx, w / 2, h / 2, cine.timer * 8, glowColor);
   } else {

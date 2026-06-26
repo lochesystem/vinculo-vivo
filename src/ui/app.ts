@@ -6,17 +6,19 @@ import {
   isMajorEvolutionLevel,
   selectEvolutionForm,
 } from '../core/evolution';
-import { pickReactionParticle, getAnimationSpeed } from '../core/personality';
+import { pickReactionParticle } from '../core/personality';
 import type { CareAction, CreatureState, EvolutionRecord, ScreenId, UserProfile } from '../core/types';
 import { getCandidateForms, getFormById, getHatchlingFormId } from '../data/forms';
 import { generateSpeech } from '../data/speech-banks';
-import { drawCreaturePixel, type AnimState } from '../render/creature-sprite';
+import { drawCreaturePixel, type AnimState } from '../render/creature';
 import { createHabitatState, drawHabitat, updateHabitat } from '../render/habitat';
 import { ParticleSystem } from '../render/particles';
+import { creatureDrawScale, resizeStageCanvas, STAGE_LOGICAL_H, STAGE_LOGICAL_W } from '../render/stage';
 import {
   createEvolutionCinematic,
   drawEvolutionOverlay,
   drawLevelUpBurst,
+  getEvolutionMorphAlpha,
   startEvolution,
   updateEvolution,
 } from '../render/effects';
@@ -47,9 +49,10 @@ export class VinculoApp {
   speech = '';
   speechTick = 0;
   anim: AnimState = 'idle';
-  animFrame = 0;
+  animTime = 0;
+  hatchHappyTimer = 0;
   levelUpFrame = 0;
-  hatchFrame = 0;
+  hatchTime = 0;
   hatchComplete = false;
   pendingName = '';
   authMode: 'login' | 'register' = 'login';
@@ -123,7 +126,7 @@ export class VinculoApp {
       this.screen = 'home';
     } else {
       this.screen = 'hatch';
-      this.hatchFrame = 0;
+      this.hatchTime = 0;
       this.hatchComplete = false;
     }
     this.renderShell();
@@ -134,17 +137,22 @@ export class VinculoApp {
     if (!app) return;
 
     if (this.screen === 'home' || this.screen === 'hatch') {
+      const isTouchLayout = this.isTouch;
       app.innerHTML = `
-        <div class="game-layout ${this.isTouch ? 'touch' : ''}">
-          <canvas id="game-canvas"></canvas>
+        <div class="game-layout ${isTouchLayout ? 'touch' : ''}">
+          ${isTouchLayout && this.screen === 'home' ? this.renderHomeHUD() : ''}
+          <div class="pet-stage">
+            <canvas id="game-canvas"></canvas>
+          </div>
           <div class="ui-overlay">
-            ${this.screen === 'home' ? this.renderHomeUI() : this.renderHatchUI()}
+            ${this.screen === 'home' ? this.renderHomeUI(isTouchLayout) : this.renderHatchUI()}
           </div>
         </div>`;
       this.canvas = app.querySelector('#game-canvas');
       this.ctx = this.canvas?.getContext('2d') ?? null;
       if (this.ctx) this.ctx.imageSmoothingEnabled = false;
       this.bindHomeEvents();
+      this.resizeCanvas();
       return;
     }
 
@@ -204,16 +212,28 @@ export class VinculoApp {
       </div>`;
   }
 
-  private renderHomeUI(): string {
+  private renderHomeHUD(): string {
     if (!this.creature) return '';
     const xp = getXpProgress(this.creature);
-    const traits = generateTraitsFromSeed(this.creature.dnaSeed);
     return `
       <header class="hud-top">
         <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
         <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
         <div class="mood">${getMoodLabel(this.creature.mood)}</div>
-      </header>
+      </header>`;
+  }
+
+  private renderHomeUI(compactHud = false): string {
+    if (!this.creature) return '';
+    const xp = getXpProgress(this.creature);
+    const traits = generateTraitsFromSeed(this.creature.dnaSeed);
+    return `
+      ${compactHud ? '' : `
+      <header class="hud-top">
+        <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
+        <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
+        <div class="mood">${getMoodLabel(this.creature.mood)}</div>
+      </header>`}
       <div class="speech-bubble">${this.speech}</div>
       <div class="needs-panel">
         ${this.needBar('Fome', this.creature.needs.hunger, 'hunger')}
@@ -390,7 +410,8 @@ export class VinculoApp {
 
     this.creature = creature;
     this.hatchComplete = true;
-    this.hatchFrame = 0;
+    this.hatchTime = 0;
+    this.hatchHappyTimer = 2;
     this.anim = 'happy';
 
     await createProfileAndCreature(this.profile.id, '', this.profile.username, creature);
@@ -412,7 +433,7 @@ export class VinculoApp {
     const traits = generateTraitsFromSeed(this.creature.dnaSeed);
     const particle = pickReactionParticle(this.creature.mood, traits.personality);
     if (this.canvas) {
-      this.particles.emit(this.canvas.width / 2, this.canvas.height * 0.55, traits.palette.glow, particle);
+      this.particles.emit(STAGE_LOGICAL_W / 2, STAGE_LOGICAL_H * 0.62, traits.palette.glow, particle);
     }
 
     if (result.leveledUp) {
@@ -435,10 +456,12 @@ export class VinculoApp {
     const candidates = getCandidateForms(traits.archetype, this.creature.level);
     const form = selectEvolutionForm(candidates, this.creature.careVector, this.creature.dnaSeed);
     const path = evolutionPathFromForm(form.id);
+    const prevForm = getFormById(this.creature.formId);
+    if (!prevForm) return;
 
     return new Promise((resolve) => {
       this.anim = 'evolve';
-      startEvolution(this.evolutionCine, async () => {
+      startEvolution(this.evolutionCine, prevForm, form, async () => {
         if (!this.creature) return resolve();
         this.creature = {
           ...this.creature,
@@ -501,10 +524,7 @@ export class VinculoApp {
 
   private resizeCanvas(): void {
     if (!this.canvas) return;
-    const parent = this.canvas.parentElement;
-    if (!parent) return;
-    this.canvas.width = parent.clientWidth;
-    this.canvas.height = parent.clientHeight;
+    resizeStageCanvas(this.canvas);
   }
 
   private loop(now: number): void {
@@ -532,25 +552,64 @@ export class VinculoApp {
     const form = getFormById(this.creature.formId);
     if (!form) return;
 
+    this.animTime += dt;
+    if (this.screen === 'hatch') this.hatchTime += dt;
+    if (this.hatchHappyTimer > 0) {
+      this.hatchHappyTimer -= dt;
+      if (this.hatchHappyTimer <= 0) this.anim = 'idle';
+    }
+
+    if (this.creature.mood === 'sleeping' && this.anim !== 'evolve' && this.anim !== 'happy') {
+      this.anim = 'sleep';
+    } else if (this.anim === 'sleep' && this.creature.mood !== 'sleeping') {
+      this.anim = 'idle';
+    }
+
     updateHabitat(this.habitat, dt);
     drawHabitat(ctx, w, h, traits.archetype, this.habitat);
-
-    const speed = getAnimationSpeed(traits.personality, this.creature.mood);
-    this.animFrame += dt * 60 * speed;
-    if (this.screen === 'hatch') this.hatchFrame += dt * 60;
 
     updateEvolution(this.evolutionCine, dt);
     this.particles.update(dt);
     this.particles.draw(ctx);
 
-    const scale = this.isTouch ? 3.5 : 4;
-    drawCreaturePixel(ctx, w / 2, h * 0.58, scale, {
+    const scale = creatureDrawScale();
+    const petX = w / 2;
+    const petY = h * 0.62;
+    const drawOpts = {
       traits,
-      form,
-      anim: this.screen === 'hatch' && !this.hatchComplete ? 'idle' : this.anim,
-      frame: this.screen === 'hatch' ? this.hatchFrame : this.animFrame,
+      morphId: form.morphId,
+      anim: (this.screen === 'hatch' && !this.hatchComplete ? 'idle' : this.anim) as AnimState,
+      animTime: this.screen === 'hatch' ? this.hatchTime : this.animTime,
+      mood: this.creature.mood,
       moodGlow: this.creature.mood === 'excited' ? 0.3 : 0,
-    });
+      happiness: this.creature.needs.happiness,
+    };
+
+    if (this.evolutionCine.active && this.evolutionCine.fromForm && this.evolutionCine.toForm) {
+      const [oldA, newA] = getEvolutionMorphAlpha(this.evolutionCine);
+      if (oldA > 0) {
+        ctx.save();
+        ctx.globalAlpha = oldA;
+        drawCreaturePixel(ctx, petX, petY, scale, {
+          ...drawOpts,
+          form: this.evolutionCine.fromForm,
+          morphId: this.evolutionCine.fromForm.morphId,
+        });
+        ctx.restore();
+      }
+      if (newA > 0) {
+        ctx.save();
+        ctx.globalAlpha = newA;
+        drawCreaturePixel(ctx, petX, petY, scale, {
+          ...drawOpts,
+          form: this.evolutionCine.toForm,
+          morphId: this.evolutionCine.toForm.morphId,
+        });
+        ctx.restore();
+      }
+    } else {
+      drawCreaturePixel(ctx, petX, petY, scale, { ...drawOpts, form });
+    }
 
     if (this.levelUpFrame > 0) {
       drawLevelUpBurst(ctx, w / 2, h * 0.4, this.levelUpFrame);

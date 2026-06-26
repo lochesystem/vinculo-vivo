@@ -1,7 +1,7 @@
 import type { CreatureState } from '../core/types';
 import { generateTraitsFromSeed } from '../core/dna';
 import { getFormById } from '../data/forms';
-import { drawCreaturePixel, type AnimState } from '../render/creature-sprite';
+import { drawCreaturePixel, type AnimState } from '../render/creature';
 import { getMoodLabel } from '../core/personality';
 import { getXpProgress } from '../core/creature';
 
@@ -17,7 +17,8 @@ export class PiPCompanion {
   private popupPoll: ReturnType<typeof setInterval> | null = null;
   private widget: HTMLElement | null = null;
   private widgetVisible = false;
-  private animFrame = 0;
+  private animTime = 0;
+  private lastAnimTs = 0;
   private rafId = 0;
   private callbacks: PipCallbacks | null = null;
 
@@ -249,8 +250,11 @@ export class PiPCompanion {
   }
 
   private startAnimLoop(): void {
-    const loop = () => {
-      this.animFrame++;
+    this.lastAnimTs = performance.now();
+    const loop = (now: number) => {
+      const dt = Math.min(0.1, (now - this.lastAnimTs) / 1000);
+      this.lastAnimTs = now;
+      this.animTime += dt;
       const creature = this.callbacks?.getCreature();
       if (creature) this.drawCreatureCanvases(creature);
       this.rafId = requestAnimationFrame(loop);
@@ -276,8 +280,11 @@ export class PiPCompanion {
       drawCreaturePixel(ctx, canvas.width / 2, canvas.height / 2 + 10, 2.5, {
         traits,
         form,
+        morphId: form.morphId,
         anim,
-        frame: this.animFrame,
+        animTime: this.animTime,
+        mood: creature.mood,
+        happiness: creature.needs.happiness,
       });
     }
   }
