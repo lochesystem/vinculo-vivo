@@ -30,6 +30,9 @@ export function drawCreaturePixel(
     form.wingScale,
     form.tailScale,
     form.silhouette !== 'egg',
+    opts.walkPhase ?? 0,
+    opts.walkIntensity ?? 0,
+    opts.facingLeft ?? false,
   );
 
   const pixelScale = scale * PIXEL_SCALE;
@@ -47,8 +50,6 @@ export function drawCreaturePixel(
     visualDna,
   });
 
-  const walkBounce = opts.isWalking ? Math.sin(animTime * 14) * 1.5 : 0;
-
   blitComposedSprite(
     ctx,
     cx,
@@ -58,7 +59,7 @@ export function drawCreaturePixel(
     form.bodyScale,
     motion.squishX,
     motion.squishY,
-    motion.bounceY + walkBounce,
+    motion.bounceY,
     opts.facingLeft ?? false,
   );
 }

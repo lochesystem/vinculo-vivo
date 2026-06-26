@@ -44,7 +44,8 @@ import { getCareButtonClass, getMoodClass, renderNeedBar } from './needs-ui';
 import { mountStageHud, unmountStageHud, updateStageHud } from './stage-hud';
 import { getHabitatBgm } from '../audio/bgm';
 import { mountAudioControls, setAudioControlsVisible } from './audio-controls';
-import { createPetWander, recallPet, updatePetWander, type PetWanderState } from '../core/pet-wander';
+import { createPetWander, recallPet, updatePetWander, getWalkIntensity, isLocomoting, shouldPreservePetWander, type PetWanderState } from '../core/pet-wander';
+import { sampleGroundY } from '../render/pixel-habitat';
 
 export class VinculoApp {
   screen: ScreenId = 'splash';
@@ -180,11 +181,14 @@ export class VinculoApp {
       const stage = app.querySelector('.pet-stage');
       if (stage instanceof HTMLElement) mountStageHud(stage);
       if (this.screen === 'home' && this.creature) {
-        this.petWander = createPetWander(
-          STAGE_LOGICAL_W / 2,
-          STAGE_LOGICAL_H * 0.62,
-          this.creature.dnaSeed,
-        );
+        if (!shouldPreservePetWander(this.petWander, this.creature.dnaSeed)) {
+          const gx = STAGE_LOGICAL_W / 2;
+          this.petWander = createPetWander(
+            gx,
+            sampleGroundY(gx, STAGE_LOGICAL_W, STAGE_LOGICAL_H, this.creature.dnaSeed),
+            this.creature.dnaSeed,
+          );
+        }
       } else if (this.screen !== 'home') {
         this.petWander = null;
       }
@@ -446,7 +450,10 @@ export class VinculoApp {
   private handleRecallPet(): void {
     if (!this.canvas || !this.petWander || this.evolutionCine.active) return;
     getHabitatBgm().unlock();
-    recallPet(this.petWander, this.canvas.width, this.canvas.height);
+    const seed = this.creature?.dnaSeed ?? 0;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+    recallPet(this.petWander, w, (x) => sampleGroundY(x, w, h, seed));
     this.anim = 'happy';
     this.hatchHappyTimer = 0.8;
   }
@@ -572,7 +579,7 @@ export class VinculoApp {
     await logCare(this.creature.id, action, result.creature.needs);
     this.refreshSpeech();
     pipCompanion.update();
-    this.renderShell();
+    this.refreshNeedsDom();
   }
 
   private async handleLevelUp(): Promise<void> {
@@ -617,8 +624,51 @@ export class VinculoApp {
     void saveCreature(this.creature);
     pipCompanion.update();
     this.refreshSpeech();
-    const hud = document.querySelector('.needs-panel');
-    if (hud) this.renderShell();
+    this.refreshNeedsDom();
+  }
+
+  private refreshNeedsDom(): void {
+    if (!this.creature || this.screen !== 'home') return;
+    const needs = this.creature.needs;
+    const xp = getXpProgress(this.creature);
+    const moodCls = getMoodClass(this.creature.mood);
+
+    const panel = document.querySelector('.needs-panel');
+    if (panel) {
+      panel.innerHTML = [
+        renderNeedBar('Fome', needs.hunger, 'hunger'),
+        renderNeedBar('Energia', needs.energy, 'energy'),
+        renderNeedBar('Higiene', needs.hygiene, 'hygiene'),
+        renderNeedBar('Felicidade', needs.happiness, 'happy'),
+      ].join('');
+    }
+
+    document.querySelectorAll('.mood').forEach((el) => {
+      el.className = `mood ${moodCls}`;
+      el.textContent = getMoodLabel(this.creature!.mood);
+    });
+
+    document.querySelectorAll('.level-bar').forEach((el) => {
+      el.innerHTML = `Nv.${this.creature!.level} <div class="bar"><div style="width:${xp.pct}%"></div></div>`;
+    });
+
+    document.querySelectorAll('[data-care]').forEach((el) => {
+      const action = (el as HTMLElement).dataset.care as CareAction | 'recall';
+      if (!action || action === 'recall') return;
+      (el as HTMLElement).classList.toggle('suggested', getCareButtonClass(action, needs).includes('suggested'));
+    });
+
+    const speechEl = document.querySelector('.speech-bubble');
+    if (speechEl) speechEl.textContent = this.speech;
+
+    const toastEl = document.querySelector('.toast');
+    if (this.toast && !toastEl) {
+      const overlay = document.querySelector('.ui-overlay');
+      overlay?.insertAdjacentHTML('beforeend', `<div class="toast">${this.toast}</div>`);
+    } else if (toastEl) {
+      if (this.toast) toastEl.textContent = this.toast;
+      else toastEl.remove();
+    }
   }
 
   private refreshSpeech(): void {
@@ -702,36 +752,51 @@ export class VinculoApp {
     this.particles.draw(ctx);
 
     const scale = creatureDrawScale();
+    const seed = this.creature.dnaSeed;
+    const getGroundY = (x: number) => sampleGroundY(x, w, h, seed);
     const wanderActive = this.screen === 'home' && this.petWander != null;
-    const canWander =
+    const blockedAnims: AnimState[] = ['eat', 'play', 'sleep', 'evolve', 'happy', 'hurt'];
+    const canLocomote =
       wanderActive &&
       !this.evolutionCine.active &&
-      this.anim === 'idle' &&
+      !blockedAnims.includes(this.anim) &&
       this.creature.mood !== 'sleeping';
 
     let petX = w / 2;
-    let petY = h * 0.62;
+    let petY = getGroundY(petX);
     let facingLeft = false;
-    let isWalking = false;
+    let walkPhase = 0;
+    let walkIntensity = 0;
 
     if (wanderActive && this.petWander) {
-      updatePetWander(this.petWander, dt, w, h, canWander);
+      const locResult = updatePetWander(this.petWander, dt, w, h, canLocomote, {
+        getGroundY,
+        personality: traits.personality,
+        mood: this.creature.mood,
+      });
       petX = this.petWander.x;
       petY = this.petWander.y;
       facingLeft = this.petWander.facingLeft;
-      isWalking = canWander && this.petWander.pauseSec <= 0;
+      walkPhase = this.petWander.walkPhase;
+      walkIntensity = getWalkIntensity(this.petWander.mode);
+
+      if (locResult.footStep && isLocomoting(this.petWander.mode)) {
+        const dustColor = traits.palette.primary;
+        this.particles.emit(petX, petY + 10, dustColor, 'smoke', 3);
+      }
     }
 
     const drawOpts = {
       traits,
-      dnaSeed: this.creature.dnaSeed,
+      dnaSeed: seed,
       anim: (this.screen === 'hatch' && !this.hatchComplete ? 'idle' : this.anim) as AnimState,
       animTime: this.screen === 'hatch' ? this.hatchTime : this.animTime,
       mood: this.creature.mood,
       moodGlow: this.creature.mood === 'excited' ? 0.3 : 0,
       happiness: this.creature.needs.happiness,
       facingLeft,
-      isWalking,
+      walkPhase,
+      walkIntensity,
     };
 
     if (this.evolutionCine.active && this.evolutionCine.fromForm && this.evolutionCine.toForm) {

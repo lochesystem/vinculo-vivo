@@ -21,6 +21,9 @@ export function computeCreatureMotion(
   wingScale: number,
   tailScale: number,
   allowLimbs: boolean,
+  walkPhase = 0,
+  walkIntensity = 0,
+  facingLeft = false,
 ): CreatureMotion {
   const speed = getAnimationSpeed(personality, mood);
   const bounceMult = getIdleBounce(personality);
@@ -62,6 +65,20 @@ export function computeCreatureMotion(
     squishX = 1 + Math.sin(t * Math.PI * 1.1) * 0.035;
     squishY = 1 - Math.sin(t * Math.PI * 1.1) * 0.025;
     sway = Math.sin(t * Math.PI * 0.35 + seedPhase) * 0.03;
+  }
+
+  if (walkIntensity > 0) {
+    const stride = Math.sin(walkPhase * Math.PI * 2);
+    bounceY = stride * 6 * walkIntensity;
+    const lean = 0.045 * walkIntensity;
+    if (facingLeft) {
+      squishX = 1 - lean;
+      squishY = 1 + lean * 0.5;
+    } else {
+      squishX = 1 + lean;
+      squishY = 1 + lean * 0.5;
+    }
+    sway = stride * 0.04 * walkIntensity;
   }
 
   if (allowLimbs && anim !== 'sleep' && mood !== 'sleeping') {

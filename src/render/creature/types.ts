@@ -18,6 +18,8 @@ export interface DrawCreatureOptions {
   happiness?: number;
   facingLeft?: boolean;
   isWalking?: boolean;
+  walkPhase?: number;
+  walkIntensity?: number;
 }
 
 export interface BodyProportions {

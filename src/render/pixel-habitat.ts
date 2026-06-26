@@ -2,6 +2,7 @@ import { mulberry32, clamp } from '../core/rng';
 import { applyDayPhase, dayLightness, getBiomePalette, type BiomePalette } from '../data/biome-palettes';
 
 const BLOCK = 2;
+const CLOUD_CELL = 4;
 
 interface Cloud {
   layer: 0 | 1 | 2;
@@ -10,33 +11,40 @@ interface Cloud {
   template: number;
   speed: number;
   phase: number;
+  wisp: boolean;
 }
 
-/** Block cell coords [col, row] relative to cloud origin, 2px per cell */
+/** Block cell coords [col, row] — drawn at CLOUD_CELL px per cell */
 const CLOUD_TEMPLATES: ReadonlyArray<ReadonlyArray<[number, number]>> = [
-  // wide cumulus A (~56px)
-  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [6, 2],
-   [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
-   [2, 0], [3, 0], [4, 0]],
-  // cumulus B (~48px)
-  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2],
-   [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
+  // megaCumulus (~128px wide)
+  [[0, 3], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3], [12, 3], [13, 3], [14, 3], [15, 3], [16, 3], [17, 3], [18, 3], [19, 3], [20, 3], [21, 3], [22, 3], [23, 3], [24, 3], [25, 3], [26, 3], [27, 3], [28, 3], [29, 3], [30, 3], [31, 3],
+   [2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [8, 2], [9, 2], [10, 2], [11, 2], [12, 2], [13, 2], [14, 2], [15, 2], [16, 2], [17, 2], [18, 2], [19, 2], [20, 2], [21, 2], [22, 2], [23, 2], [24, 2], [25, 2], [26, 2], [27, 2], [28, 2], [29, 2],
+   [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 1], [12, 1], [13, 1], [14, 1], [15, 1], [16, 1], [17, 1], [18, 1], [19, 1], [20, 1], [21, 1], [22, 1], [23, 1], [24, 1], [25, 1],
+   [8, 0], [9, 0], [10, 0], [11, 0], [12, 0], [13, 0], [14, 0], [15, 0], [16, 0], [17, 0], [18, 0], [19, 0], [20, 0], [21, 0]],
+  // stormStack (~96px tall tower)
+  [[4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0], [10, 0], [11, 0],
+   [3, 1], [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 1], [12, 1],
+   [2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [8, 2], [9, 2], [10, 2], [11, 2], [12, 2], [13, 2],
+   [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3], [11, 3], [12, 3], [13, 3], [14, 3],
+   [0, 4], [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4], [11, 4], [12, 4], [13, 4], [14, 4], [15, 4],
+   [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5], [11, 5], [12, 5], [13, 5]],
+  // anvilSpread (~120px wide wing)
+  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [6, 2], [7, 2], [8, 2], [9, 2], [10, 2], [11, 2], [12, 2], [13, 2], [14, 2], [15, 2], [16, 2], [17, 2], [18, 2], [19, 2], [20, 2], [21, 2], [22, 2], [23, 2], [24, 2], [25, 2], [26, 2], [27, 2], [28, 2], [29, 2],
+   [4, 1], [5, 1], [6, 1], [7, 1], [8, 1], [9, 1], [10, 1], [11, 1], [12, 1], [13, 1], [14, 1], [15, 1], [16, 1], [17, 1], [18, 1], [19, 1], [20, 1], [21, 1], [22, 1], [23, 1], [24, 1], [25, 1],
+   [8, 0], [9, 0], [10, 0], [11, 0], [12, 0], [13, 0], [14, 0], [15, 0], [16, 0], [17, 0], [18, 0], [19, 0], [20, 0], [21, 0]],
+  // wisp A (distant small)
+  [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
    [1, 0], [2, 0], [3, 0], [4, 0]],
-  // cumulus C (~40px)
-  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2],
-   [1, 1], [2, 1], [3, 1],
-   [2, 0], [3, 0]],
-  // puffy D
-  [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1],
-   [1, 0], [2, 0], [3, 0], [4, 0], [5, 0],
-   [2, 2], [3, 2], [4, 2]],
+  // wisp B
+  [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0],
+   [2, 1], [3, 1], [4, 1]],
 ];
 
-const LAYER_SPEED = [3, 6, 10] as const;
-const LAYER_ALPHA = [0.35, 0.45, 0.55] as const;
-const LAYER_FACTOR = [0.6, 1, 1.4] as const;
+const LAYER_SPEED = [2, 4, 7] as const;
+const LAYER_ALPHA = [0.28, 0.38, 0.5] as const;
+const LAYER_FACTOR = [0.5, 0.85, 1.2] as const;
 
-function hillY(
+export function hillY(
   col: number,
   cols: number,
   h: number,
@@ -51,6 +59,17 @@ function hillY(
   return base + stepped;
 }
 
+/** Pet foot Y — follows near-hill terrain with visible 8–16px variation */
+export function sampleGroundY(x: number, w: number, h: number, seed: number): number {
+  const col = clamp(Math.floor(x / BLOCK), 0, Math.ceil(w / BLOCK) - 1);
+  const cols = Math.ceil(w / BLOCK);
+  const nearY = hillY(col, cols, h, 2, seed + 41);
+  const groundLine = h * 0.72;
+  const basePetY = h * 0.62;
+  const terrainOffset = (nearY - groundLine + BLOCK * 4) * 0.38;
+  return basePetY + clamp(terrainOffset, -16, 16);
+}
+
 function pickGrassColor(pal: BiomePalette, rng: () => number, accent?: string): string {
   const r = rng();
   if (accent && r > 0.92) return accent;
@@ -62,29 +81,65 @@ function pickGrassColor(pal: BiomePalette, rng: () => number, accent?: string): 
 function buildClouds(seed: number, w: number, h: number): Cloud[] {
   const rng = mulberry32(seed ^ 0xc10d07);
   const clouds: Cloud[] = [];
-  for (let i = 0; i < 5; i++) {
+
+  for (let i = 0; i < 3; i++) {
     const layer = (i % 3) as 0 | 1 | 2;
     clouds.push({
       layer,
-      baseX: rng() * w,
-      baseY: 10 + layer * 12 + Math.floor(rng() * (h * 0.14)),
-      template: Math.floor(rng() * CLOUD_TEMPLATES.length),
-      speed: LAYER_SPEED[layer] * (0.9 + rng() * 0.25),
+      baseX: rng() * w * 0.8,
+      baseY: 6 + layer * 14 + Math.floor(rng() * (h * 0.1)),
+      template: i % 3,
+      speed: LAYER_SPEED[layer] * (0.85 + rng() * 0.2),
       phase: rng() * Math.PI * 2,
+      wisp: false,
     });
   }
+
+  for (let i = 0; i < 2; i++) {
+    clouds.push({
+      layer: 0,
+      baseX: rng() * w,
+      baseY: 18 + Math.floor(rng() * (h * 0.08)),
+      template: 3 + (i % 2),
+      speed: LAYER_SPEED[0] * 0.7,
+      phase: rng() * Math.PI * 2,
+      wisp: true,
+    });
+  }
+
   return clouds;
 }
 
-function drawCloudBlocks(
+function drawCloudHero(
   ctx: CanvasRenderingContext2D,
   originX: number,
   originY: number,
   templateIdx: number,
+  wisp: boolean,
 ): void {
   const cells = CLOUD_TEMPLATES[templateIdx % CLOUD_TEMPLATES.length];
+  const minRow = Math.min(...cells.map((c) => c[1]));
+  const topCols = new Set(cells.filter((c) => c[1] === minRow).map((c) => c[0]));
+  const cell = wisp ? CLOUD_CELL * 0.5 : CLOUD_CELL;
+
+  ctx.fillStyle = '#90A4AE';
   for (const [col, row] of cells) {
-    ctx.fillRect(originX + col * BLOCK, originY + row * BLOCK, BLOCK, BLOCK);
+    ctx.fillRect(
+      Math.floor(originX + col * cell + 3),
+      Math.floor(originY + row * cell + 3),
+      Math.ceil(cell),
+      Math.ceil(cell),
+    );
+  }
+
+  for (const [col, row] of cells) {
+    ctx.fillStyle = topCols.has(col) && row === minRow ? '#E8EAF6' : '#FFFFFF';
+    ctx.fillRect(
+      Math.floor(originX + col * cell),
+      Math.floor(originY + row * cell),
+      Math.ceil(cell),
+      Math.ceil(cell),
+    );
   }
 }
 
@@ -180,17 +235,16 @@ function drawOrganicClouds(
 ): void {
   if (light <= 0.2) return;
 
-  const margin = 100;
+  const margin = 180;
   ctx.save();
-  ctx.fillStyle = '#FFFFFF';
 
   for (const cloud of clouds) {
-    const layerAlpha = LAYER_ALPHA[cloud.layer] * clamp(light, 0.2, 1);
+    const layerAlpha = (cloud.wisp ? LAYER_ALPHA[0] * 0.55 : LAYER_ALPHA[cloud.layer]) * clamp(light, 0.2, 1);
     ctx.globalAlpha = layerAlpha;
     const xBase =
       ((cloud.baseX + time * cloud.speed * LAYER_FACTOR[cloud.layer]) % (w + margin)) - margin;
-    const yBase = cloud.baseY + Math.sin(time * 0.4 + cloud.phase) * 3;
-    drawCloudBlocks(ctx, Math.floor(xBase), Math.floor(yBase), cloud.template);
+    const yBase = cloud.baseY + Math.sin(time * 0.35 + cloud.phase) * 4;
+    drawCloudHero(ctx, Math.floor(xBase), Math.floor(yBase), cloud.template, cloud.wisp);
   }
 
   ctx.restore();
