@@ -344,11 +344,21 @@ body {
 }
 
 .care-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
-  justify-content: center;
+  width: 100%;
   margin-bottom: 8px;
+}
+
+.care-actions button {
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.care-actions button[data-care="train"] {
+  grid-column: 1 / -1;
 }
 
 .care-actions button,
@@ -376,14 +386,16 @@ body {
 }
 
 .hud-bottom {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
   align-items: center;
-  flex-wrap: wrap;
+  width: 100%;
   font-size: 9px;
 }
 
 .hud-bottom button {
+  width: 100%;
   font-family: inherit;
   font-size: 9px;
   padding: 8px 10px;
@@ -391,10 +403,16 @@ body {
   border: 2px solid var(--accent);
   color: var(--accent);
   cursor: pointer;
+  text-align: center;
 }
 
-.streak, .rarity {
-  margin-left: auto;
+.streak {
+  justify-self: start;
+}
+
+.rarity {
+  justify-self: end;
+  text-align: right;
 }
 
 .toast {
@@ -662,7 +680,6 @@ body {
 
 .game-layout.touch .care-actions button {
   min-height: 48px;
-  min-width: 64px;
   font-size: 12px;
 }
 
