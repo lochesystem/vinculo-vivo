@@ -69,6 +69,45 @@ export interface DnaTraits {
   personality: PersonalityTraits;
 }
 
+export type ChassisId =
+  | 'round_mascot'
+  | 'pear_creature'
+  | 'bird_beak'
+  | 'box_robot'
+  | 'floppy_ears'
+  | 'crown_royal'
+  | 'ghost_wisp'
+  | 'insect_antenna'
+  | 'long_snout'
+  | 'star_spirit'
+  | 'mushroom_cap'
+  | 'ninja_mask'
+  | 'quadruped_low'
+  | 'serpent_neck'
+  | 'humanoid_tall'
+  | 'apex_hybrid';
+
+export type FaceId =
+  | 'dot_classic'
+  | 'beady_wide'
+  | 'sleepy_slit'
+  | 'beak_mouth'
+  | 'cyclops'
+  | 'star_eyes'
+  | 'grin_toothy'
+  | 'tiny_o'
+  | 'angry_brow'
+  | 'mask_slash';
+
+export type FeatureSlot = 'ears' | 'crown' | 'tail' | 'wings' | 'horn' | 'cape' | 'tuft';
+
+export interface CreatureVisualDna {
+  chassisId: ChassisId;
+  faceId: FaceId;
+  features: FeatureSlot[];
+  variant: 0 | 1 | 2 | 3;
+}
+
 export interface CareVector {
   affection: number;
   discipline: number;

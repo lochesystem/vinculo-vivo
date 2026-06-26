@@ -280,7 +280,7 @@ export class PiPCompanion {
       drawCreaturePixel(ctx, canvas.width / 2, canvas.height / 2 + 10, 2.5, {
         traits,
         form,
-        morphId: form.morphId,
+        dnaSeed: creature.dnaSeed,
         anim,
         animTime: this.animTime,
         mood: creature.mood,

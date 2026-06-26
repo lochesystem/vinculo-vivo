@@ -1,43 +1,14 @@
-import type { MorphId } from '../../data/morphs';
-import { morphFromFormId } from '../../data/morphs';
+import type { ChassisId } from '../../data/chassis';
+import { chassisFromFormId } from '../../data/chassis';
 import { computeCreatureMotion } from './animation';
-import { computeBodyProportions } from './proportions';
-import { drawFace } from './face';
-import { drawHorns } from './parts/horns';
-import { drawWings } from './parts/wings';
-import { drawTail } from './parts/tail';
-import { drawPattern } from './parts/patterns';
-import {
-  drawAura,
-  drawChibiBlob,
-  drawQuadrupedPup,
-  drawSerpentCoil,
-  drawCanineFeral,
-  drawHumanoidGuardian,
-  drawBeastWinged,
-  drawEtherealMystic,
-  drawApexHybrid,
-  drawEgg,
-  type MorphDrawContext,
-} from './morphs/index';
+import { blitComposedSprite, composeCreatureSprite, generateVisualDnaFromSeed } from './composer';
 import type { DrawCreatureOptions } from './types';
 
 export type { AnimState, DrawCreatureOptions } from './types';
+export { generateVisualDnaFromSeed, resolveChassisId } from '../../core/visual-dna';
+export { computeCreatureMotion } from './animation';
 
-const MORPH_DRAWERS: Record<MorphId, (ctx: MorphDrawContext) => void> = {
-  chibi_blob: drawChibiBlob,
-  quadruped_pup: drawQuadrupedPup,
-  serpent_coil: drawSerpentCoil,
-  canine_feral: drawCanineFeral,
-  humanoid_guardian: drawHumanoidGuardian,
-  beast_winged: drawBeastWinged,
-  ethereal_mystic: drawEtherealMystic,
-  apex_hybrid: drawApexHybrid,
-};
-
-export function resolveMorphId(formId: string, explicit?: MorphId): MorphId {
-  return explicit ?? morphFromFormId(formId);
-}
+const PIXEL_SCALE = 1.15;
 
 export function drawCreaturePixel(
   ctx: CanvasRenderingContext2D,
@@ -47,10 +18,9 @@ export function drawCreaturePixel(
   opts: DrawCreatureOptions,
 ): void {
   const { traits, form, anim, animTime, mood } = opts;
-  const morphId = opts.morphId ?? morphFromFormId(form.id);
-  const pal = traits.palette;
-  const props = computeBodyProportions(traits);
-  const allowLimbs = form.silhouette !== 'egg';
+  const dnaSeed = opts.dnaSeed ?? 0;
+  const visualDna = opts.visualDna ?? generateVisualDnaFromSeed(dnaSeed, traits);
+
   const motion = computeCreatureMotion(
     animTime,
     anim,
@@ -59,35 +29,38 @@ export function drawCreaturePixel(
     traits.parts.pattern + traits.parts.eyes,
     form.wingScale,
     form.tailScale,
-    allowLimbs,
+    form.silhouette !== 'egg',
   );
 
-  ctx.save();
-  ctx.translate(cx, cy + motion.bounceY);
-  ctx.rotate(motion.sway);
-  ctx.scale(scale * form.bodyScale * motion.squishX, scale * form.bodyScale * motion.squishY);
+  const pixelScale = scale * PIXEL_SCALE;
+  const chassisOverride = opts.chassisId ?? null;
 
-  if (form.silhouette === 'egg') {
-    drawEgg(ctx, pal, animTime);
-    ctx.restore();
-    return;
-  }
+  const composed = composeCreatureSprite({
+    traits,
+    dnaSeed,
+    formId: form.id,
+    silhouette: form.silhouette,
+    anim,
+    animTime,
+    mood,
+    chassisOverride,
+    visualDna,
+  });
 
-  drawAura(ctx, pal.glow, form.auraIntensity + (opts.moodGlow ?? 0));
-
-  const mctx: MorphDrawContext = { ctx, traits, form, props, motion };
-  const drawer = MORPH_DRAWERS[morphId] ?? drawChibiBlob;
-  drawer(mctx);
-
-  drawFace(ctx, traits, anim, motion.blink, opts.happiness ?? 50);
-  if (traits.parts.horns > 0) drawHorns(ctx, pal, form.hornScale, traits.parts.horns);
-  if (traits.parts.wings > 0) drawWings(ctx, pal, form.wingScale, motion.flap, traits.parts.wings);
-  if (traits.parts.tail > 0) {
-    drawTail(ctx, pal, form.tailScale, motion.wag, traits.bodyShape, traits.parts.tail);
-  }
-  drawPattern(ctx, traits.parts.pattern, pal, traits.archetype);
-
-  ctx.restore();
+  blitComposedSprite(
+    ctx,
+    cx,
+    cy,
+    pixelScale,
+    composed,
+    form.bodyScale,
+    motion.squishX,
+    motion.squishY,
+    motion.bounceY,
+  );
 }
 
-export { computeCreatureMotion } from './animation';
+export function resolveChassisForForm(formId: string, dnaSeed: number, traits: DrawCreatureOptions['traits']): ChassisId {
+  const visual = generateVisualDnaFromSeed(dnaSeed, traits);
+  return chassisFromFormId(formId) ?? visual.chassisId;
+}

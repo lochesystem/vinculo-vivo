@@ -577,7 +577,7 @@ export class VinculoApp {
     const petY = h * 0.62;
     const drawOpts = {
       traits,
-      morphId: form.morphId,
+      dnaSeed: this.creature.dnaSeed,
       anim: (this.screen === 'hatch' && !this.hatchComplete ? 'idle' : this.anim) as AnimState,
       animTime: this.screen === 'hatch' ? this.hatchTime : this.animTime,
       mood: this.creature.mood,
@@ -593,7 +593,7 @@ export class VinculoApp {
         drawCreaturePixel(ctx, petX, petY, scale, {
           ...drawOpts,
           form: this.evolutionCine.fromForm,
-          morphId: this.evolutionCine.fromForm.morphId,
+          chassisId: this.evolutionCine.fromForm.chassisId,
         });
         ctx.restore();
       }
@@ -603,7 +603,7 @@ export class VinculoApp {
         drawCreaturePixel(ctx, petX, petY, scale, {
           ...drawOpts,
           form: this.evolutionCine.toForm,
-          morphId: this.evolutionCine.toForm.morphId,
+          chassisId: this.evolutionCine.toForm.chassisId,
         });
         ctx.restore();
       }

@@ -1,5 +1,7 @@
 import type { ArchetypeId, CareVector } from '../core/types';
 import { ARCHETYPES } from './archetypes';
+import type { ChassisId } from './chassis';
+import { chassisFromFormId } from './chassis';
 import type { MorphId } from './morphs';
 import { morphFromFormId } from './morphs';
 
@@ -15,6 +17,7 @@ export interface FormPreset {
   auraIntensity: number;
   silhouette: 'egg' | 'baby' | 'teen' | 'adult' | 'apex';
   morphId: MorphId;
+  chassisId: ChassisId | null;
 }
 
 export const PATHS = ['guardian', 'feral', 'ascendant', 'mystic', 'balanced'] as const;
@@ -24,9 +27,13 @@ function archPrefix(arch: ArchetypeId): string {
 }
 
 function form(
-  base: Omit<FormPreset, 'morphId'>,
+  base: Omit<FormPreset, 'morphId' | 'chassisId'>,
 ): FormPreset {
-  return { ...base, morphId: morphFromFormId(base.id) };
+  return {
+    ...base,
+    morphId: morphFromFormId(base.id),
+    chassisId: chassisFromFormId(base.id),
+  };
 }
 
 function formsForArchetype(arch: ArchetypeId): FormPreset[] {
