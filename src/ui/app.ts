@@ -44,6 +44,7 @@ import { getCareButtonClass, getMoodClass, renderNeedBar } from './needs-ui';
 import { mountStageHud, unmountStageHud, updateStageHud } from './stage-hud';
 import { getHabitatBgm } from '../audio/bgm';
 import { mountAudioControls, setAudioControlsVisible } from './audio-controls';
+import { createPetWander, recallPet, updatePetWander, type PetWanderState } from '../core/pet-wander';
 
 export class VinculoApp {
   screen: ScreenId = 'splash';
@@ -73,13 +74,27 @@ export class VinculoApp {
   private particles = new ParticleSystem();
   private evolutionCine = createEvolutionCinematic();
   private lastTime = 0;
-  private isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+  private petWander: PetWanderState | null = null;
+  private bgmUnlockCleanup: (() => void) | null = null;
+  private bgmSoundToastTimer: ReturnType<typeof setTimeout> | undefined;
+  private portraitLockCleanup: (() => void) | null = null;
+
+  /** Mobile layout: coarse pointer on a narrow viewport (not touch laptops/desktops). */
+  private useTouchLayout(): boolean {
+    return window.matchMedia('(pointer: coarse) and (max-width: 767px)').matches;
+  }
+
+  private usePortraitLock(): boolean {
+    return this.useTouchLayout() && window.innerHeight > window.innerWidth;
+  }
 
   async init(): Promise<void> {
     mountAudioControls();
     this.renderShell();
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
+    window.addEventListener('resize', () => this.onViewportChange());
+    window.addEventListener('orientationchange', () => this.onViewportChange());
 
     pipCompanion.init({
       getCreature: () => this.creature,
@@ -142,10 +157,16 @@ export class VinculoApp {
     if (!app) return;
 
     if (this.screen === 'home' || this.screen === 'hatch') {
-      const isTouchLayout = this.isTouch;
+      const isTouchLayout = this.useTouchLayout();
       app.innerHTML = `
         <div class="game-layout ${isTouchLayout ? 'touch' : ''}">
-          ${isTouchLayout && this.screen === 'home' ? this.renderHomeHUD() : ''}
+          ${isTouchLayout ? `
+          <div class="rotate-overlay" aria-hidden="true">
+            <div class="rotate-overlay-inner">
+              <span class="rotate-icon">📱↻</span>
+              <p>Gire para paisagem</p>
+            </div>
+          </div>` : ''}
           <div class="pet-stage">
             <canvas id="game-canvas"></canvas>
           </div>
@@ -158,11 +179,24 @@ export class VinculoApp {
       if (this.ctx) this.ctx.imageSmoothingEnabled = false;
       const stage = app.querySelector('.pet-stage');
       if (stage instanceof HTMLElement) mountStageHud(stage);
+      if (this.screen === 'home' && this.creature) {
+        this.petWander = createPetWander(
+          STAGE_LOGICAL_W / 2,
+          STAGE_LOGICAL_H * 0.62,
+          this.creature.dnaSeed,
+        );
+      } else if (this.screen !== 'home') {
+        this.petWander = null;
+      }
       this.bindHomeEvents();
+      this.bindBgmUnlockOnLayout();
+      this.bindPortraitLock();
       this.resizeCanvas();
       this.syncBgm();
       return;
     }
+
+    this.teardownHomeListeners();
 
     unmountStageHud();
     app.innerHTML = `<div class="screen screen-${this.screen}">${this.renderScreenContent()}</div>`;
@@ -174,6 +208,76 @@ export class VinculoApp {
     const onHome = this.screen === 'home';
     getHabitatBgm().setHabitatActive(onHome);
     setAudioControlsVisible(onHome);
+  }
+
+  private bindBgmUnlockOnLayout(): void {
+    this.bgmUnlockCleanup?.();
+    this.bgmUnlockCleanup = null;
+    if (this.bgmSoundToastTimer != null) {
+      clearTimeout(this.bgmSoundToastTimer);
+      this.bgmSoundToastTimer = undefined;
+    }
+    if (this.screen !== 'home') return;
+
+    const layout = document.querySelector('.game-layout');
+    if (!layout) return;
+
+    const unlock = () => {
+      getHabitatBgm().unlock();
+      if (this.bgmSoundToastTimer != null) {
+        clearTimeout(this.bgmSoundToastTimer);
+        this.bgmSoundToastTimer = undefined;
+      }
+    };
+    layout.addEventListener('pointerdown', unlock, { capture: true, once: true });
+    this.bgmUnlockCleanup = () => layout.removeEventListener('pointerdown', unlock, { capture: true });
+
+    if (this.useTouchLayout() && !getHabitatBgm().isUnlocked()) {
+      this.bgmSoundToastTimer = setTimeout(() => {
+        if (!getHabitatBgm().isUnlocked()) {
+          this.showToast('Toque na tela para ativar o som');
+        }
+      }, 2000);
+    }
+  }
+
+  private bindPortraitLock(): void {
+    this.portraitLockCleanup?.();
+    this.portraitLockCleanup = null;
+    if (!this.useTouchLayout()) return;
+
+    const update = () => {
+      const layout = document.querySelector('.game-layout.touch');
+      if (!layout) return;
+      layout.classList.toggle('portrait-locked', this.usePortraitLock());
+    };
+    window.addEventListener('orientationchange', update);
+    window.addEventListener('resize', update);
+    update();
+    this.portraitLockCleanup = () => {
+      window.removeEventListener('orientationchange', update);
+      window.removeEventListener('resize', update);
+    };
+  }
+
+  private teardownHomeListeners(): void {
+    this.bgmUnlockCleanup?.();
+    this.bgmUnlockCleanup = null;
+    if (this.bgmSoundToastTimer != null) {
+      clearTimeout(this.bgmSoundToastTimer);
+      this.bgmSoundToastTimer = undefined;
+    }
+    this.portraitLockCleanup?.();
+    this.portraitLockCleanup = null;
+  }
+
+  private onViewportChange(): void {
+    if (this.screen !== 'home' && this.screen !== 'hatch') return;
+    const layout = document.querySelector('.game-layout');
+    if (!layout) return;
+    const touch = this.useTouchLayout();
+    layout.classList.toggle('touch', touch);
+    layout.classList.toggle('portrait-locked', touch && this.usePortraitLock());
   }
 
   private renderScreenContent(): string {
@@ -228,16 +332,6 @@ export class VinculoApp {
       </div>`;
   }
 
-  private renderHomeHUD(): string {
-    if (!this.creature) return '';
-    const xp = getXpProgress(this.creature);
-    return `
-      <header class="hud-top hud-top-compact">
-        <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
-        <div class="mood ${getMoodClass(this.creature.mood)}">${getMoodLabel(this.creature.mood)}</div>
-      </header>`;
-  }
-
   private renderHomeUI(compactHud = false): string {
     if (!this.creature) return '';
     const xp = getXpProgress(this.creature);
@@ -245,7 +339,11 @@ export class VinculoApp {
     const needs = this.creature.needs;
     const moodCls = getMoodClass(this.creature.mood);
     return `
-      ${compactHud ? '' : `
+      ${compactHud ? `
+      <header class="hud-top hud-top-compact">
+        <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
+        <div class="mood ${moodCls}">${getMoodLabel(this.creature.mood)}</div>
+      </header>` : `
       <header class="hud-top">
         <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
         <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
@@ -264,6 +362,7 @@ export class VinculoApp {
         <button data-care="clean"${getCareButtonClass('clean', needs)}>✨ Limpar</button>
         <button data-care="rest"${getCareButtonClass('rest', needs)}>💤 Descansar</button>
         <button data-care="train"${getCareButtonClass('train', needs)}>⚔ Treinar</button>
+        <button data-care="recall">📣 Chamar</button>
       </div>
       <div class="hud-bottom">
         <button id="btn-pip">ABRIR PiP</button>
@@ -334,9 +433,22 @@ export class VinculoApp {
     });
     document.querySelectorAll('[data-care]').forEach((el) => {
       el.addEventListener('click', () => {
-        this.doCare((el as HTMLElement).dataset.care as CareAction);
+        const action = (el as HTMLElement).dataset.care;
+        if (action === 'recall') {
+          this.handleRecallPet();
+          return;
+        }
+        this.doCare(action as CareAction);
       });
     });
+  }
+
+  private handleRecallPet(): void {
+    if (!this.canvas || !this.petWander || this.evolutionCine.active) return;
+    getHabitatBgm().unlock();
+    recallPet(this.petWander, this.canvas.width, this.canvas.height);
+    this.anim = 'happy';
+    this.hatchHappyTimer = 0.8;
   }
 
   private async handleAuth(): Promise<void> {
@@ -590,8 +702,26 @@ export class VinculoApp {
     this.particles.draw(ctx);
 
     const scale = creatureDrawScale();
-    const petX = w / 2;
-    const petY = h * 0.62;
+    const wanderActive = this.screen === 'home' && this.petWander != null;
+    const canWander =
+      wanderActive &&
+      !this.evolutionCine.active &&
+      this.anim === 'idle' &&
+      this.creature.mood !== 'sleeping';
+
+    let petX = w / 2;
+    let petY = h * 0.62;
+    let facingLeft = false;
+    let isWalking = false;
+
+    if (wanderActive && this.petWander) {
+      updatePetWander(this.petWander, dt, w, h, canWander);
+      petX = this.petWander.x;
+      petY = this.petWander.y;
+      facingLeft = this.petWander.facingLeft;
+      isWalking = canWander && this.petWander.pauseSec <= 0;
+    }
+
     const drawOpts = {
       traits,
       dnaSeed: this.creature.dnaSeed,
@@ -600,6 +730,8 @@ export class VinculoApp {
       mood: this.creature.mood,
       moodGlow: this.creature.mood === 'excited' ? 0.3 : 0,
       happiness: this.creature.needs.happiness,
+      facingLeft,
+      isWalking,
     };
 
     if (this.evolutionCine.active && this.evolutionCine.fromForm && this.evolutionCine.toForm) {

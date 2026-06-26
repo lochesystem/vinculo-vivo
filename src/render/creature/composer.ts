@@ -91,9 +91,11 @@ export function blitComposedSprite(
   squishX = 1,
   squishY = 1,
   bounceY = 0,
+  facingLeft = false,
 ): void {
   ctx.save();
   ctx.translate(cx, cy + bounceY);
+  if (facingLeft) ctx.scale(-1, 1);
   ctx.scale(bodyScale * squishX, bodyScale * squishY);
   composed.grid.blit(ctx, 0, 0, scale, composed.palette);
   if (composed.accentPixels.length) {

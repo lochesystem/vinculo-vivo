@@ -47,6 +47,8 @@ export function drawCreaturePixel(
     visualDna,
   });
 
+  const walkBounce = opts.isWalking ? Math.sin(animTime * 14) * 1.5 : 0;
+
   blitComposedSprite(
     ctx,
     cx,
@@ -56,7 +58,8 @@ export function drawCreaturePixel(
     form.bodyScale,
     motion.squishX,
     motion.squishY,
-    motion.bounceY,
+    motion.bounceY + walkBounce,
+    opts.facingLeft ?? false,
   );
 }
 

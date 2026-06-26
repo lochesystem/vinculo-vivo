@@ -3,23 +3,36 @@ import { applyDayPhase, dayLightness, getBiomePalette, type BiomePalette } from 
 
 const BLOCK = 2;
 
-interface CloudPuff {
-  dx: number;
-  dy: number;
-  w: number;
-  h: number;
-}
-
 interface Cloud {
   layer: 0 | 1 | 2;
   baseX: number;
   baseY: number;
-  puffs: CloudPuff[];
+  template: number;
   speed: number;
   phase: number;
 }
 
-const LAYER_SPEED = [4, 8, 14] as const;
+/** Block cell coords [col, row] relative to cloud origin, 2px per cell */
+const CLOUD_TEMPLATES: ReadonlyArray<ReadonlyArray<[number, number]>> = [
+  // wide cumulus A (~56px)
+  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [6, 2],
+   [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
+   [2, 0], [3, 0], [4, 0]],
+  // cumulus B (~48px)
+  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2],
+   [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
+   [1, 0], [2, 0], [3, 0], [4, 0]],
+  // cumulus C (~40px)
+  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2],
+   [1, 1], [2, 1], [3, 1],
+   [2, 0], [3, 0]],
+  // puffy D
+  [[0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [5, 1], [6, 1],
+   [1, 0], [2, 0], [3, 0], [4, 0], [5, 0],
+   [2, 2], [3, 2], [4, 2]],
+];
+
+const LAYER_SPEED = [3, 6, 10] as const;
 const LAYER_ALPHA = [0.35, 0.45, 0.55] as const;
 const LAYER_FACTOR = [0.6, 1, 1.4] as const;
 
@@ -49,28 +62,30 @@ function pickGrassColor(pal: BiomePalette, rng: () => number, accent?: string): 
 function buildClouds(seed: number, w: number, h: number): Cloud[] {
   const rng = mulberry32(seed ^ 0xc10d07);
   const clouds: Cloud[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     const layer = (i % 3) as 0 | 1 | 2;
-    const puffCount = 3 + Math.floor(rng() * 3);
-    const puffs: CloudPuff[] = [];
-    for (let p = 0; p < puffCount; p++) {
-      puffs.push({
-        dx: Math.floor(rng() * 20),
-        dy: Math.floor(rng() * 6) - 3,
-        w: 8 + Math.floor(rng() * 16),
-        h: 3 + Math.floor(rng() * 3),
-      });
-    }
     clouds.push({
       layer,
       baseX: rng() * w,
-      baseY: 12 + layer * 10 + Math.floor(rng() * (h * 0.18)),
-      puffs,
-      speed: LAYER_SPEED[layer] * (0.85 + rng() * 0.3),
+      baseY: 10 + layer * 12 + Math.floor(rng() * (h * 0.14)),
+      template: Math.floor(rng() * CLOUD_TEMPLATES.length),
+      speed: LAYER_SPEED[layer] * (0.9 + rng() * 0.25),
       phase: rng() * Math.PI * 2,
     });
   }
   return clouds;
+}
+
+function drawCloudBlocks(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  templateIdx: number,
+): void {
+  const cells = CLOUD_TEMPLATES[templateIdx % CLOUD_TEMPLATES.length];
+  for (const [col, row] of cells) {
+    ctx.fillRect(originX + col * BLOCK, originY + row * BLOCK, BLOCK, BLOCK);
+  }
 }
 
 function drawPixelStars(ctx: CanvasRenderingContext2D, w: number, h: number, alpha: number): void {
@@ -165,7 +180,7 @@ function drawOrganicClouds(
 ): void {
   if (light <= 0.2) return;
 
-  const margin = 80;
+  const margin = 100;
   ctx.save();
   ctx.fillStyle = '#FFFFFF';
 
@@ -174,16 +189,8 @@ function drawOrganicClouds(
     ctx.globalAlpha = layerAlpha;
     const xBase =
       ((cloud.baseX + time * cloud.speed * LAYER_FACTOR[cloud.layer]) % (w + margin)) - margin;
-    const yBase = cloud.baseY + Math.sin(time * 0.4 + cloud.phase) * 2;
-
-    for (const puff of cloud.puffs) {
-      ctx.fillRect(
-        Math.floor(xBase + puff.dx),
-        Math.floor(yBase + puff.dy),
-        puff.w,
-        puff.h,
-      );
-    }
+    const yBase = cloud.baseY + Math.sin(time * 0.4 + cloud.phase) * 3;
+    drawCloudBlocks(ctx, Math.floor(xBase), Math.floor(yBase), cloud.template);
   }
 
   ctx.restore();

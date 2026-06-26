@@ -16,6 +16,8 @@ export interface DrawCreatureOptions {
   mood: Mood;
   moodGlow?: number;
   happiness?: number;
+  facingLeft?: boolean;
+  isWalking?: boolean;
 }
 
 export interface BodyProportions {

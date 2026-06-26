@@ -1,4 +1,4 @@
-const CACHE = 'vinculo-vivo-v2';
+const CACHE = 'vinculo-vivo-v3';
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
 
 const PRECACHE = [

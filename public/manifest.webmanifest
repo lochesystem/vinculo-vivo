@@ -7,7 +7,7 @@
   "id": "/vinculo-vivo/",
   "display": "standalone",
   "display_override": ["standalone", "fullscreen"],
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0d0a1a",
   "theme_color": "#4c1d95",
   "lang": "pt-BR",
