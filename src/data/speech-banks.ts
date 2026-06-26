@@ -1,6 +1,7 @@
-import type { ArchetypeId, Mood } from '../core/types';
+import type { ArchetypeId, Mood, Needs } from '../core/types';
 import { mulberry32 } from '../core/rng';
 import { getMoodLabel } from '../core/personality';
+import { NEED_LOW_THRESHOLD } from '../core/types';
 
 const REASONS: Record<Mood, string[]> = {
   happy: ['você cuidou bem de mim', 'o habitat está lindo hoje', 'sinto energia vital pulsar'],
@@ -12,6 +13,8 @@ const REASONS: Record<Mood, string[]> = {
   excited: ['quero brincar!', 'sinto evolução próxima!', 'vamos explorar!'],
   sad: ['fiquei sozinho demais', 'meu humor caiu', 'preciso de carinho'],
 };
+
+const LOW_HYGIENE_HINTS = ['preciso de um banho', 'me sinto sujo', 'a higiene está caindo'];
 
 const ARCHETYPE_PHRASES: Record<ArchetypeId, string[]> = {
   ember: ['Brasa viva!', 'Calor ancestral.', 'Chamas dançam em mim.'],
@@ -33,14 +36,34 @@ const TEMPLATES = [
   '{name} ({archetype}): {phrase}',
 ];
 
+function pickLowNeedSpeech(name: string, needs: Needs, rng: () => number): string | null {
+  if (needs.hunger < NEED_LOW_THRESHOLD) {
+    const reasons = REASONS.hungry;
+    const reason = reasons[Math.floor(rng() * reasons.length)];
+    return `${name} está com fome — ${reason}.`;
+  }
+  if (needs.hygiene < NEED_LOW_THRESHOLD) {
+    const hint = LOW_HYGIENE_HINTS[Math.floor(rng() * LOW_HYGIENE_HINTS.length)];
+    return `${name} precisa de higiene — ${hint}.`;
+  }
+  return null;
+}
+
 export function generateSpeech(
   name: string,
   mood: Mood,
   archetype: ArchetypeId,
   dnaSeed: number,
   tick: number,
+  needs?: Needs,
 ): string {
   const rng = mulberry32(dnaSeed + tick);
+
+  if (needs) {
+    const urgent = pickLowNeedSpeech(name, needs, rng);
+    if (urgent) return urgent;
+  }
+
   const template = TEMPLATES[Math.floor(rng() * TEMPLATES.length)];
   const reasons = REASONS[mood];
   const phrases = ARCHETYPE_PHRASES[archetype];

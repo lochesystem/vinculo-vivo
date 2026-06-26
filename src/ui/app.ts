@@ -40,6 +40,7 @@ import { RARITY_COLORS, RARITY_LABELS } from '../data/archetypes';
 import { getArchetypeMeta } from '../core/dna';
 import { getMoodLabel } from '../core/personality';
 import { getXpProgress } from '../core/creature';
+import { getCareButtonClass, getMoodClass, renderNeedBar } from './needs-ui';
 
 export class VinculoApp {
   screen: ScreenId = 'splash';
@@ -219,7 +220,7 @@ export class VinculoApp {
       <header class="hud-top">
         <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
         <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
-        <div class="mood">${getMoodLabel(this.creature.mood)}</div>
+        <div class="mood ${getMoodClass(this.creature.mood)}">${getMoodLabel(this.creature.mood)}</div>
       </header>`;
   }
 
@@ -227,26 +228,28 @@ export class VinculoApp {
     if (!this.creature) return '';
     const xp = getXpProgress(this.creature);
     const traits = generateTraitsFromSeed(this.creature.dnaSeed);
+    const needs = this.creature.needs;
+    const moodCls = getMoodClass(this.creature.mood);
     return `
       ${compactHud ? '' : `
       <header class="hud-top">
         <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
         <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
-        <div class="mood">${getMoodLabel(this.creature.mood)}</div>
+        <div class="mood ${moodCls}">${getMoodLabel(this.creature.mood)}</div>
       </header>`}
       <div class="speech-bubble">${this.speech}</div>
       <div class="needs-panel">
-        ${this.needBar('Fome', this.creature.needs.hunger, 'hunger')}
-        ${this.needBar('Energia', this.creature.needs.energy, 'energy')}
-        ${this.needBar('Higiene', this.creature.needs.hygiene, 'hygiene')}
-        ${this.needBar('Felicidade', this.creature.needs.happiness, 'happy')}
+        ${renderNeedBar('Fome', needs.hunger, 'hunger')}
+        ${renderNeedBar('Energia', needs.energy, 'energy')}
+        ${renderNeedBar('Higiene', needs.hygiene, 'hygiene')}
+        ${renderNeedBar('Felicidade', needs.happiness, 'happy')}
       </div>
       <div class="care-actions">
-        <button data-care="feed">🍖 Comer</button>
-        <button data-care="play">🎾 Brincar</button>
-        <button data-care="clean">✨ Limpar</button>
-        <button data-care="rest">💤 Descansar</button>
-        <button data-care="train">⚔ Treinar</button>
+        <button data-care="feed"${getCareButtonClass('feed', needs)}>🍖 Comer</button>
+        <button data-care="play"${getCareButtonClass('play', needs)}>🎾 Brincar</button>
+        <button data-care="clean"${getCareButtonClass('clean', needs)}>✨ Limpar</button>
+        <button data-care="rest"${getCareButtonClass('rest', needs)}>💤 Descansar</button>
+        <button data-care="train"${getCareButtonClass('train', needs)}>⚔ Treinar</button>
       </div>
       <div class="hud-bottom">
         <button id="btn-pip">ABRIR PiP</button>
@@ -255,10 +258,6 @@ export class VinculoApp {
         <span class="rarity" style="color:${RARITY_COLORS[traits.rarity]}">${RARITY_LABELS[traits.rarity]}</span>
       </div>
       ${this.toast ? `<div class="toast">${this.toast}</div>` : ''}`;
-  }
-
-  private needBar(label: string, val: number, cls: string): string {
-    return `<div class="need"><span>${label}</span><div class="bar ${cls}"><div style="width:${val}%"></div></div></div>`;
   }
 
   private renderProfileUI(): string {
@@ -504,6 +503,7 @@ export class VinculoApp {
       traits.archetype,
       this.creature.dnaSeed,
       this.speechTick,
+      this.creature.needs,
     );
   }
 

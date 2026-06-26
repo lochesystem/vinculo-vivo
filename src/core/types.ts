@@ -189,6 +189,10 @@ export function defaultNeeds(): Needs {
   return { hunger: 80, energy: 85, hygiene: 90, happiness: 75 };
 }
 
+export const NEED_LOW_THRESHOLD = 30;
+export const NEED_SUGGEST_HUNGER = 25;
+export const NEED_SUGGEST_HYGIENE = 25;
+
 export function defaultCareVector(): CareVector {
   return {
     affection: 0,
