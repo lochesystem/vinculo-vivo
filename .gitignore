@@ -3,4 +3,6 @@ dist
 .env
 .env.local
 *.local
+.supabase-db-password.local
 .DS_Store
+supabase/.temp/
