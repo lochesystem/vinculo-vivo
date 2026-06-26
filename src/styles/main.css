@@ -430,6 +430,28 @@ body {
   border-bottom: 1px solid #333;
 }
 
+.account-line {
+  font-size: 9px;
+  color: #888;
+  margin: 12px 0 8px;
+}
+
+.btn-logout {
+  width: 100%;
+  margin-top: 12px;
+  font-family: inherit;
+  font-size: 11px;
+  padding: 10px 14px;
+  border: 2px solid #7f1d1d;
+  background: #450a0a;
+  color: #fca5a5;
+  cursor: pointer;
+}
+
+.btn-logout:hover {
+  background: #7f1d1d;
+}
+
 /* PiP widget */
 .vv-pip-widget {
   position: fixed;

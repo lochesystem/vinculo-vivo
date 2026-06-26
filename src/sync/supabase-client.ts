@@ -23,6 +23,10 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
+export function resetSupabaseClient(): void {
+  client = null;
+}
+
 export type DbProfile = {
   id: string;
   username: string;

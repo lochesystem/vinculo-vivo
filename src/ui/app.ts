@@ -21,9 +21,10 @@ import {
   updateEvolution,
 } from '../render/effects';
 import { pipCompanion } from '../pip/pip';
-import { getSupabase, isSupabaseConfigured } from '../sync/supabase-client';
+import { getSupabase, isSupabaseConfigured, resetSupabaseClient } from '../sync/supabase-client';
 import {
   appendEvolution,
+  clearLocalSession,
   createLocalGuestId,
   createProfileAndCreature,
   fetchCreature,
@@ -260,7 +261,9 @@ export class VinculoApp {
         </div>
         <h3>Evoluções</h3>
         <ul class="evo-list">${this.evolutions.map((e) => `<li>Nv.${e.level} — ${e.formId}</li>`).join('') || '<li>Nenhuma ainda</li>'}</ul>
+        <p class="account-line">Conta: ${this.profile.displayName}</p>
         <button id="btn-export" class="btn-primary">Exportar JSON</button>
+        <button id="btn-logout" class="btn-logout">Sair da conta</button>
       </div>`;
   }
 
@@ -278,6 +281,7 @@ export class VinculoApp {
       this.renderShell();
     });
     document.getElementById('btn-export')?.addEventListener('click', () => this.exportCard());
+    document.getElementById('btn-logout')?.addEventListener('click', () => void this.handleLogout());
   }
 
   private bindHomeEvents(): void {
@@ -355,6 +359,22 @@ export class VinculoApp {
     } else {
       this.screen = 'hatch';
     }
+    this.renderShell();
+  }
+
+  private async handleLogout(): Promise<void> {
+    pipCompanion.closeAll();
+    const sb = getSupabase();
+    if (sb) await sb.auth.signOut();
+    resetSupabaseClient();
+    clearLocalSession(true);
+    this.profile = null;
+    this.creature = null;
+    this.evolutions = [];
+    this.authError = '';
+    this.authEmail = '';
+    this.authPassword = '';
+    this.screen = 'auth';
     this.renderShell();
   }
 

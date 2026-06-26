@@ -202,4 +202,12 @@ export function createLocalGuestId(): string {
   return id;
 }
 
+/** Limpa save local e sessão em cache (não remove conta Supabase). */
+export function clearLocalSession(clearGuestId = false): void {
+  localStorage.removeItem(LOCAL_KEY);
+  localStorage.removeItem(LOCAL_PROFILE_KEY);
+  localStorage.removeItem(LOCAL_EVOLUTION_KEY);
+  if (clearGuestId) localStorage.removeItem('vinculo_vivo_guest_id');
+}
+
 export { isSupabaseConfigured };
