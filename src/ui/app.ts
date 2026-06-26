@@ -41,6 +41,7 @@ import { getArchetypeMeta } from '../core/dna';
 import { getMoodLabel } from '../core/personality';
 import { getXpProgress } from '../core/creature';
 import { getCareButtonClass, getMoodClass, renderNeedBar } from './needs-ui';
+import { mountStageHud, unmountStageHud, updateStageHud } from './stage-hud';
 
 export class VinculoApp {
   screen: ScreenId = 'splash';
@@ -152,11 +153,14 @@ export class VinculoApp {
       this.canvas = app.querySelector('#game-canvas');
       this.ctx = this.canvas?.getContext('2d') ?? null;
       if (this.ctx) this.ctx.imageSmoothingEnabled = false;
+      const stage = app.querySelector('.pet-stage');
+      if (stage instanceof HTMLElement) mountStageHud(stage);
       this.bindHomeEvents();
       this.resizeCanvas();
       return;
     }
 
+    unmountStageHud();
     app.innerHTML = `<div class="screen screen-${this.screen}">${this.renderScreenContent()}</div>`;
     this.bindScreenEvents();
   }
@@ -217,8 +221,7 @@ export class VinculoApp {
     if (!this.creature) return '';
     const xp = getXpProgress(this.creature);
     return `
-      <header class="hud-top">
-        <div class="creature-name">${this.creature.name} <span class="soulbound-tag">SOULBOUND</span></div>
+      <header class="hud-top hud-top-compact">
         <div class="level-bar">Nv.${this.creature.level} <div class="bar"><div style="width:${xp.pct}%"></div></div></div>
         <div class="mood ${getMoodClass(this.creature.mood)}">${getMoodLabel(this.creature.mood)}</div>
       </header>`;
@@ -567,6 +570,7 @@ export class VinculoApp {
 
     updateHabitat(this.habitat, dt);
     drawHabitat(ctx, w, h, traits.archetype, this.habitat);
+    updateStageHud(this.creature.name, this.habitat, performance.now());
 
     updateEvolution(this.evolutionCine, dt);
     this.particles.update(dt);

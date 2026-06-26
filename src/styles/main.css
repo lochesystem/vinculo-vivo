@@ -69,6 +69,89 @@ body {
   image-rendering: pixelated;
 }
 
+.stage-hud {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  pointer-events: none;
+  z-index: 2;
+  background: rgba(13, 10, 26, 0.72);
+  border: 2px solid var(--border);
+  padding: 6px 8px;
+  backdrop-filter: blur(4px);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.stage-hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stage-hud-row + .stage-hud-row {
+  margin-top: 4px;
+}
+
+.stage-hud-name {
+  color: var(--gold);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 55%;
+}
+
+.stage-hud-clock {
+  color: var(--text);
+  font-size: 9px;
+}
+
+.stage-hud-cycle {
+  color: var(--accent);
+  font-size: 8px;
+}
+
+.stage-hud-icon {
+  flex-shrink: 0;
+}
+
+.stage-hud-period {
+  flex: 1;
+}
+
+.stage-hud-countdown {
+  color: #9ca3af;
+  white-space: nowrap;
+}
+
+.stage-hud.dawn {
+  border-color: #f59e0b;
+}
+
+.stage-hud.day {
+  border-color: #38bdf8;
+}
+
+.stage-hud.dusk {
+  border-color: #f97316;
+}
+
+.stage-hud.night {
+  border-color: #6366f1;
+}
+
+.hud-top-compact {
+  justify-content: space-between;
+}
+
+.hud-top-compact .level-bar {
+  flex: 1;
+  min-width: 0;
+}
+
 .ui-overlay {
   flex: 1 1 auto;
   min-height: 0;
