@@ -1,0 +1,485 @@
+:root {
+  --bg: #0d0a1a;
+  --panel: #151028;
+  --border: #4c1d95;
+  --accent: #a78bfa;
+  --gold: #ffd700;
+  --text: #e8e0ff;
+  --danger: #f87171;
+  --hunger: #f97316;
+  --energy: #38bdf8;
+  --hygiene: #34d399;
+  --happy: #ec4899;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Silkscreen', 'Press Start 2P', monospace;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  user-select: none;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+}
+
+.game-layout {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.ui-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.ui-overlay > * {
+  pointer-events: auto;
+}
+
+.hud-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: rgba(13, 10, 26, 0.75);
+  border: 2px solid var(--border);
+  padding: 8px 12px;
+  backdrop-filter: blur(4px);
+}
+
+.creature-name {
+  font-size: 14px;
+  color: var(--gold);
+}
+
+.soulbound-tag {
+  font-size: 8px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 2px 4px;
+  margin-left: 6px;
+}
+
+.level-bar {
+  flex: 1;
+  min-width: 120px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bar {
+  flex: 1;
+  height: 10px;
+  background: #1a1030;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #6d28d9, var(--accent));
+  transition: width 0.4s;
+}
+
+.bar.hunger > div { background: var(--hunger); }
+.bar.energy > div { background: var(--energy); }
+.bar.hygiene > div { background: var(--hygiene); }
+.bar.happy > div { background: var(--happy); }
+
+.mood {
+  font-size: 10px;
+  color: var(--accent);
+}
+
+.speech-bubble {
+  margin-top: auto;
+  margin-bottom: 8px;
+  max-width: 90%;
+  align-self: center;
+  background: rgba(21, 16, 40, 0.9);
+  border: 2px solid var(--border);
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+  animation: bubbleIn 0.3s ease;
+}
+
+@keyframes bubbleIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.needs-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  background: rgba(13, 10, 26, 0.8);
+  border: 2px solid var(--border);
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+.need {
+  font-size: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.need .bar {
+  height: 8px;
+}
+
+.care-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.care-actions button,
+.btn-primary,
+.btn-secondary,
+.auth-card button {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  background: #2e1065;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.care-actions button:active,
+.btn-primary:active {
+  transform: scale(0.96);
+}
+
+.care-actions button:hover,
+.btn-primary:hover {
+  background: #4c1d95;
+}
+
+.hud-bottom {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 9px;
+}
+
+.hud-bottom button {
+  font-family: inherit;
+  font-size: 9px;
+  padding: 8px 10px;
+  background: #1a1030;
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.streak, .rarity {
+  margin-left: auto;
+}
+
+.toast {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(76, 29, 149, 0.95);
+  border: 2px solid var(--gold);
+  padding: 10px 16px;
+  font-size: 10px;
+  z-index: 100;
+  animation: bubbleIn 0.3s;
+}
+
+/* Splash */
+.screen-splash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: radial-gradient(ellipse at center, #2e1065 0%, var(--bg) 70%);
+}
+
+.splash-inner {
+  text-align: center;
+}
+
+.title-shimmer {
+  font-size: clamp(18px, 5vw, 28px);
+  background: linear-gradient(90deg, var(--gold), var(--accent), var(--gold));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+  to { background-position: 200% center; }
+}
+
+.subtitle {
+  font-size: 10px;
+  color: var(--accent);
+  margin: 12px 0 24px;
+}
+
+.splash-egg {
+  width: 48px;
+  height: 60px;
+  margin: 0 auto 20px;
+  background: radial-gradient(ellipse, #ffd700, #6d28d9);
+  border-radius: 50% 50% 45% 45%;
+  animation: eggPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes eggPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.loading {
+  font-size: 9px;
+  color: #888;
+}
+
+/* Auth */
+.screen-auth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 20px;
+  background: radial-gradient(ellipse at top, #1a1030, var(--bg));
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--panel);
+  border: 3px solid var(--border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-card h1 {
+  font-size: 16px;
+  text-align: center;
+  color: var(--gold);
+}
+
+.badge-soulbound {
+  text-align: center;
+  font-size: 8px;
+  color: var(--accent);
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.auth-tabs button {
+  flex: 1;
+  padding: 8px;
+  background: #1a1030;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.auth-tabs button.active {
+  background: #4c1d95;
+  border-color: var(--accent);
+}
+
+.auth-card input {
+  padding: 10px;
+  background: #0d0a1a;
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 9px;
+}
+
+.hint {
+  font-size: 8px;
+  color: #888;
+  text-align: center;
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: #666;
+}
+
+/* Hatch */
+.hatch-ui, .hatch-reveal {
+  position: absolute;
+  bottom: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  background: rgba(13, 10, 26, 0.85);
+  border: 2px solid var(--gold);
+  padding: 16px 24px;
+}
+
+.hatch-ui input {
+  display: block;
+  margin: 12px auto;
+  padding: 10px;
+  background: #0d0a1a;
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Profile */
+.screen-profile {
+  min-height: 100%;
+  padding: 20px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.profile-card {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.profile-card h2, .profile-card h3 {
+  color: var(--gold);
+  margin: 16px 0 8px;
+  font-size: 14px;
+}
+
+.card-frame {
+  background: var(--panel);
+  border: 3px solid var(--accent);
+  padding: 16px;
+  font-size: 11px;
+  line-height: 1.8;
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.2);
+}
+
+.dna-hash {
+  font-size: 8px;
+  color: #888;
+  word-break: break-all;
+}
+
+.evo-list {
+  list-style: none;
+  font-size: 10px;
+  margin-bottom: 16px;
+}
+
+.evo-list li {
+  padding: 4px 0;
+  border-bottom: 1px solid #333;
+}
+
+/* PiP widget */
+.vv-pip-widget {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  width: 300px;
+  background: #0d0a1a;
+  border: 2px solid var(--accent);
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* Touch layout */
+.game-layout.touch .care-actions button {
+  min-height: 48px;
+  min-width: 64px;
+  font-size: 12px;
+}
+
+.game-layout.touch .needs-panel {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .game-layout:not(.touch) {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+  }
+
+  .game-layout:not(.touch) #game-canvas {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .game-layout:not(.touch) .ui-overlay {
+    grid-column: 2;
+    position: relative;
+    background: rgba(13, 10, 26, 0.95);
+    border-left: 2px solid var(--border);
+    justify-content: flex-start;
+    padding-top: 24px;
+  }
+
+  .game-layout:not(.touch) .speech-bubble {
+    margin-top: 16px;
+  }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .hud-top {
+    font-size: 10px;
+  }
+}
