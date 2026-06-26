@@ -415,6 +415,49 @@ body {
   text-align: right;
 }
 
+.audio-controls.hidden {
+  display: none;
+}
+
+.audio-controls {
+  position: fixed;
+  left: 8px;
+  bottom: 8px;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: rgba(13, 10, 26, 0.88);
+  border: 2px solid var(--border);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+}
+
+.audio-controls button {
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 6px;
+  background: #1a1030;
+  border: 2px solid var(--accent);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 32px;
+}
+
+.audio-controls input[type='range'] {
+  width: 72px;
+  height: 6px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.audio-controls input[type='range']:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .toast {
   position: fixed;
   bottom: 80px;

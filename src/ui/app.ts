@@ -42,6 +42,8 @@ import { getMoodLabel } from '../core/personality';
 import { getXpProgress } from '../core/creature';
 import { getCareButtonClass, getMoodClass, renderNeedBar } from './needs-ui';
 import { mountStageHud, unmountStageHud, updateStageHud } from './stage-hud';
+import { getHabitatBgm } from '../audio/bgm';
+import { mountAudioControls, setAudioControlsVisible } from './audio-controls';
 
 export class VinculoApp {
   screen: ScreenId = 'splash';
@@ -74,6 +76,7 @@ export class VinculoApp {
   private isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
 
   async init(): Promise<void> {
+    mountAudioControls();
     this.renderShell();
     this.resizeCanvas();
     window.addEventListener('resize', () => this.resizeCanvas());
@@ -157,12 +160,20 @@ export class VinculoApp {
       if (stage instanceof HTMLElement) mountStageHud(stage);
       this.bindHomeEvents();
       this.resizeCanvas();
+      this.syncBgm();
       return;
     }
 
     unmountStageHud();
     app.innerHTML = `<div class="screen screen-${this.screen}">${this.renderScreenContent()}</div>`;
     this.bindScreenEvents();
+    this.syncBgm();
+  }
+
+  private syncBgm(): void {
+    const onHome = this.screen === 'home';
+    getHabitatBgm().setHabitatActive(onHome);
+    setAudioControlsVisible(onHome);
   }
 
   private renderScreenContent(): string {
@@ -309,6 +320,7 @@ export class VinculoApp {
   private bindHomeEvents(): void {
     document.getElementById('btn-hatch')?.addEventListener('click', () => void this.hatchEgg());
     document.getElementById('btn-enter-home')?.addEventListener('click', () => {
+      getHabitatBgm().unlock();
       this.screen = 'home';
       this.renderShell();
     });
@@ -423,6 +435,7 @@ export class VinculoApp {
 
   private async doCare(action: CareAction): Promise<void> {
     if (!this.creature || this.evolutionCine.active) return;
+    getHabitatBgm().unlock();
     const result = performCareAction(this.creature, action);
     if (result.blocked) {
       this.showToast(result.blocked);

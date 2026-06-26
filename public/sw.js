@@ -1,10 +1,18 @@
-const CACHE = 'vinculo-vivo-v1';
+const CACHE = 'vinculo-vivo-v2';
 const BASE = self.location.pathname.replace(/sw\.js$/, '');
+
+const PRECACHE = [
+  BASE,
+  BASE + 'index.html',
+  BASE + 'manifest.webmanifest',
+  BASE + 'audio/bg-1.mp3',
+  BASE + 'audio/bg-2.mp3',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE).then((cache) =>
-      cache.addAll([BASE, BASE + 'index.html', BASE + 'manifest.webmanifest']),
+      cache.addAll(PRECACHE),
     ).then(() => self.skipWaiting()),
   );
 });
